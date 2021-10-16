@@ -13,8 +13,10 @@ namespace WebApplication1.Controllers
         public IActionResult Random()
         {
             var firstBook = new Book() { Name = "English dictionary" };
+            // to use this in view we should import model book there
+            ViewBag.Book = firstBook;
 
-            return View(firstBook);
+            return View();
         }
         // int nullable it does not need any value
         public IActionResult Index(int? pageIndex, string sortBy)
