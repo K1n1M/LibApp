@@ -49,6 +49,11 @@ namespace WebApplication1
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllerRoute(
+                    name: "BooksByReleaseDate",
+                    pattern: "books/released/{year}/{month}",
+                    defaults: new { controller = "Books", action = "ByReleaseDate"}
+                );
+                endpoints.MapControllerRoute(
                     name: "default",
                     pattern: "{controller=Home}/{action=Index}/{id?}");
             });
