@@ -3,42 +3,100 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using WebApplication1.Models;
+using LibApp.Models;
+using LibApp.ViewModels;
+using LibApp.Data;
+using LibApp.Repositories;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
-namespace WebApplication1.Controllers
+namespace LibApp.Controllers
 {
     public class BooksController : Controller
     {
+        private readonly ApplicationDbContext _context;
+        private readonly IBookRepository _bookRepository;
 
-        public IActionResult Random()
+        public BooksController(ApplicationDbContext context, IBookRepository bookRepository)
         {
-            var firstBook = new Book() { Name = "English dictionary" };
-            // to use this in view we should import model book there
-            ViewBag.Book = firstBook;
-
-            return View();
-        }
-        // int nullable it does not need any value
-        public IActionResult Index(int? pageIndex, string sortBy)
-        {
-            if (!pageIndex.HasValue)
-            {
-                pageIndex = 1;
-            }
-
-            if (String.IsNullOrEmpty(sortBy))
-            {
-                sortBy = "Name";
-            }
-            // it saves with chains of symbols on screen
-            // in app we have deafult define root 
-            return Content($"pageIndex={pageIndex}&sortBy{sortBy}");
+            _context = context;
+            _bookRepository = bookRepository;
         }
 
-        [Route("books/released/{year:regex(^\\d{{4}}$)}/{month:range(1,12)}")]
-        public IActionResult ByReleaseDate(int year, int month)
+        [Authorize(Roles = "User,StoreManager,Owner")]
+        public IActionResult Index()
         {
-            return Content(year + "/" + month);
+            var books = _bookRepository.GetAllBooks();
+
+            return View(books);
+        }
+
+        public IActionResult Details(int id)
+        {
+            var book = _bookRepository.GetBookById(id);
+
+            return View(book);
+        }
+        
+        [Authorize(Roles="StoreManager,Owner")]
+        public IActionResult Edit(int id)
+        {
+            var book = _bookRepository.GetBookById(id);
+            if (book == null) 
+            {
+                return NotFound();
+            }
+
+            var viewModel = new BookFormViewModel
+            {
+                Book = book,
+                Genres = _context.Genre.ToList()
+            };
+
+            return View("BookForm", viewModel);
+        }
+
+        [Authorize(Roles = "StoreManager,Owner")]
+        public IActionResult New()
+        {
+            var viewModel = new BookFormViewModel
+            {
+                Genres = _context.Genre.ToList()
+            };
+
+            return View("BookForm", viewModel);
+        }
+
+        [HttpPost]
+        public IActionResult Save(Book book)
+        {
+            if (!ModelState.IsValid)
+            {
+                return New();
+            }
+
+            if (book.Id == 0)
+            {
+                book.DateAdded = DateTime.Now;
+                _bookRepository.AddBook(book);
+            }
+            else
+            {
+                _bookRepository.UpdateBook(book);
+            }
+
+            try
+            {
+                _bookRepository.Save();
+            }
+            catch (DbUpdateException e)
+            {
+                Console.WriteLine(e);
+            }
+
+            return RedirectToAction("Index", "Books");
         }
     }
 }
